@@ -23,7 +23,7 @@ A machine learning-powered email spam classification system built with Flask, sc
 - numpy 1.24+
 
 ## 🛠️ Installation
-
+ 
 ### Quick Start (Development)
 
 1. **Clone the repository**
