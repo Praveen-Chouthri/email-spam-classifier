@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Processing - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="fas fa-upload"></i> Batch Email Processing
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Upload a CSV file containing multiple emails for batch classification. 
+                    The system can process up to 1,000 emails at once.
+                </p>
+                
+                <form method="POST" action="{{ url_for('web.upload_batch') }}" enctype="multipart/form-data" id="batchForm">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">CSV File</label>
+                        <input 
+                            class="form-control" 
+                            type="file" 
+                            id="file" 
+                            name="file" 
+                            accept=".csv"
+                            required
+                        >
+                        <div class="form-text">
+                            Upload a CSV file with email content. Maximum file size: 16MB.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <h6><i class="fas fa-info-circle"></i> CSV Format Requirements:</h6>
+                        <ul class="mb-0">
+                            <li>First column should contain email content</li>
+                            <li>Header row is optional</li>
+                            <li>Maximum 1,000 emails per batch</li>
+                            <li>Supported formats: .csv</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary" id="uploadBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner"></span>
+                            <i class="fas fa-upload"></i> Upload and Process
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-download"></i> Sample CSV Format
+                    </h5>
+                    <p class="card-text">Your CSV file should look like this:</p>
+                    <pre class="bg-white p-3 border rounded">email_content
+"Subject: Special Offer! Get 50% off now! Click here to claim your discount..."
+"Subject: Meeting Tomorrow Hi John, Just a reminder about our meeting..."
+"Subject: URGENT: Verify your account Click this link immediately..."</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('batchForm').addEventListener('submit', function() {
+    const btn = document.getElementById('uploadBtn');
+    const spinner = document.getElementById('loadingSpinner');
+    
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+});
+
+// File size validation
+document.getElementById('file').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file && file.size > 16 * 1024 * 1024) {
+        alert('File size exceeds 16MB limit. Please choose a smaller file.');
+        this.value = '';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Classification Result - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="fas fa-chart-line"></i> Classification Result
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if result %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="text-center mb-4">
+                            {% if result.prediction == 'Spam' %}
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                                    <h4>SPAM DETECTED</h4>
+                                    <p class="mb-0">This email appears to be spam</p>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-success" role="alert">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <h4>LEGITIMATE EMAIL</h4>
+                                    <p class="mb-0">This email appears to be legitimate</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Classification Details</h5>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Prediction:</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if result.prediction == 'Spam' else 'success' }}">
+                                        {{ result.prediction }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Confidence:</strong></td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-{{ 'danger' if result.prediction == 'Spam' else 'success' }}" 
+                                             style="width: {{ (result.confidence * 100)|round(1) }}%">
+                                            {{ (result.confidence * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Model Used:</strong></td>
+                                <td>{{ result.model_used }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processing Time:</strong></td>
+                                <td>{{ "%.3f"|format(result.processing_time) }}s</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Timestamp:</strong></td>
+                                <td>{{ result.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h5>Email Content Analyzed</h5>
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <pre class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ email_text }}</pre>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No classification result available.
+                </div>
+                {% endif %}
+                
+                <div class="mt-4 d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{{ url_for('web.index') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Classify Another Email
+                    </a>
+                    <a href="{{ url_for('web.batch_upload') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-upload"></i> Batch Processing
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

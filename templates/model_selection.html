@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Model Selection - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="fas fa-cogs"></i> Model Selection & Management
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Choose which machine learning model to use for email classification. 
+                    Each model has different strengths - compare their performance metrics below.
+                </p>
+                
+                {% if models %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Accuracy</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1 Score</th>
+                                <th>False Negative Rate</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model in models %}
+                            <tr class="{% if model.is_current %}table-success{% endif %}">
+                                <td>
+                                    <strong>{{ model.display_name }}</strong>
+                                    {% if model.is_current %}
+                                        <span class="badge bg-success ms-2">Active</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if model.is_trained %}
+                                        <span class="badge bg-success">Trained</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Not Trained</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if model.accuracy >= 0.95 %}success{% elif model.accuracy >= 0.90 %}warning{% else %}danger{% endif %}">
+                                        {{ "%.3f"|format(model.accuracy) }}
+                                    </span>
+                                </td>
+                                <td>{{ "%.3f"|format(model.precision) }}</td>
+                                <td>{{ "%.3f"|format(model.recall) }}</td>
+                                <td>{{ "%.3f"|format(model.f1_score) }}</td>
+                                <td>
+                                    <span class="badge bg-{% if model.false_negative_rate <= 0.02 %}success{% elif model.false_negative_rate <= 0.05 %}warning{% else %}danger{% endif %}">
+                                        {{ "%.3f"|format(model.false_negative_rate) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if model.is_trained and not model.is_current %}
+                                        <form method="POST" action="{{ url_for('web.select_model') }}" style="display: inline;">
+                                            <input type="hidden" name="model_name" value="{{ model.name }}">
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-check"></i> Select
+                                            </button>
+                                        </form>
+                                    {% elif model.is_current %}
+                                        <span class="text-success">
+                                            <i class="fas fa-check-circle"></i> Current
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">Not Available</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-info-circle text-info"></i> Model Selection Tips
+                                    </h6>
+                                    <ul class="small mb-0">
+                                        <li><strong>Low False Negative Rate</strong> - Better at catching spam emails</li>
+                                        <li><strong>High Accuracy</strong> - Better overall performance</li>
+                                        <li><strong>High Precision</strong> - Fewer false positives (legitimate emails marked as spam)</li>
+                                        <li><strong>High Recall</strong> - Better at detecting all spam emails</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-exclamation-triangle text-warning"></i> Performance Indicators
+                                    </h6>
+                                    <div class="small">
+                                        <div class="mb-1">
+                                            <span class="badge bg-success">Green</span> - Excellent performance (≥95% accuracy, ≤2% FNR)
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="badge bg-warning">Yellow</span> - Good performance (≥90% accuracy, ≤5% FNR)
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="badge bg-danger">Red</span> - Needs improvement (<90% accuracy, >5% FNR)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{{ url_for('web.performance_dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-chart-bar"></i> View Dashboard
+                    </a>
+                    <div>
+                        <form method="POST" action="{{ url_for('web.retrain_models') }}" style="display: inline;" 
+                              onsubmit="return confirm('This will retrain all models and may take several minutes. Continue?')">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-sync-alt"></i> Retrain All Models
+                            </button>
+                        </form>
+                        <a href="{{ url_for('web.index') }}" class="btn btn-primary ms-2">
+                            <i class="fas fa-envelope"></i> Classify Email
+                        </a>
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> No Models Available</h5>
+                    <p>No trained models are currently available. You need to train models before you can select one.</p>
+                    <form method="POST" action="{{ url_for('web.retrain_models') }}" style="display: inline;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play"></i> Train Models Now
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add tooltips for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+</script>
+{% endblock %}

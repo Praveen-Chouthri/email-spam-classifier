@@ -1,0 +1,78 @@
+Email Spam Classification - Model Evaluation Report
+============================================================
+
+Model Performance Comparison:
+----------------------------------------
+        Model  Accuracy  Precision   Recall  F1-Score  Test Samples    Training Date
+  naive_bayes  0.924763   0.930322 0.924763  0.925849          4745 2025-11-07 22:17
+decision_tree  0.612434   0.812827 0.612434  0.609099          4745 2025-11-07 22:17
+random_forest  0.518862   0.806939 0.518862  0.489217          4745 2025-11-07 22:17
+
+Detailed Results for naive_bayes:
+----------------------------------------
+Accuracy:  0.9248
+Precision: 0.9303
+Recall:    0.9248
+F1-Score:  0.9258
+
+Class Balancing Information:
+  Method: both
+  Original Spam Ratio: 32.2%
+  Balanced Spam Ratio: 50.4%
+  Synthetic Samples: 6,246
+
+Confusion Matrix:
+                Predicted
+Actual    Legit  Spam
+Legit      2938   277
+Spam         80  1450
+
+------------------------------------------------------------
+
+Detailed Results for random_forest:
+----------------------------------------
+Accuracy:  0.5189
+Precision: 0.8069
+Recall:    0.5189
+F1-Score:  0.4892
+
+Class Balancing Information:
+  Method: both
+  Original Spam Ratio: 32.2%
+  Balanced Spam Ratio: 50.4%
+  Synthetic Samples: 6,246
+
+Confusion Matrix:
+                Predicted
+Actual    Legit  Spam
+Legit       932  2283
+Spam          0  1530
+
+------------------------------------------------------------
+
+Detailed Results for decision_tree:
+----------------------------------------
+Accuracy:  0.6124
+Precision: 0.8128
+Recall:    0.6124
+F1-Score:  0.6091
+
+Class Balancing Information:
+  Method: both
+  Original Spam Ratio: 32.2%
+  Balanced Spam Ratio: 50.4%
+  Synthetic Samples: 6,246
+
+Confusion Matrix:
+                Predicted
+Actual    Legit  Spam
+Legit      1399  1816
+Spam         23  1507
+
+------------------------------------------------------------
+
+Best Model Summary:
+------------------------------
+Model: Naive Bayes
+Accuracy: 0.9248
+F1-Score: 0.9258

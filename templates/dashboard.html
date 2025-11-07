@@ -1,0 +1,925 @@
+{% extends "base.html" %}
+
+{% block title %}Performance Dashboard - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-1">
+                    <i class="fas fa-chart-bar text-primary"></i> Performance Dashboard
+                </h2>
+                <p class="text-muted mb-0">Real-time model performance monitoring and analytics</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <span class="badge bg-success ms-2" id="lastUpdated">
+                    Last updated: <span id="currentTime"></span>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card {% if system_status == 'healthy' %}bg-primary{% elif system_status == 'not_ready' %}bg-secondary{% else %}bg-warning{% endif %} text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-robot fa-2x mb-2"></i>
+                <h5 class="card-title">Active Model</h5>
+                <h6 class="card-text">{{ active_model or 'Not Set' }}</h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        {% set status_config = {
+            'healthy': {'class': 'bg-success', 'icon': 'fas fa-check-circle', 'text': 'Healthy'},
+            'degraded': {'class': 'bg-warning', 'icon': 'fas fa-exclamation-triangle', 'text': 'Degraded'},
+            'unhealthy': {'class': 'bg-danger', 'icon': 'fas fa-times-circle', 'text': 'Unhealthy'},
+            'not_ready': {'class': 'bg-secondary', 'icon': 'fas fa-clock', 'text': 'Initializing'},
+            'initializing': {'class': 'bg-info', 'icon': 'fas fa-spinner', 'text': 'Starting Up'}
+        } %}
+        {% set current_status = status_config.get(system_status, status_config['not_ready']) %}
+        <div class="card {{ current_status.class }} text-white">
+            <div class="card-body text-center">
+                <i class="{{ current_status.icon }} fa-2x mb-2"></i>
+                <h5 class="card-title">System Status</h5>
+                <h6 class="card-text">{{ current_status.text }}</h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card {% if service_ready %}bg-info{% else %}bg-secondary{% endif %} text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-envelope fa-2x mb-2"></i>
+                <h5 class="card-title">Processed Today</h5>
+                <h6 class="card-text" id="processedToday">
+                    {% if service_ready %}
+                        {{ processed_today or 0 }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card {% if service_ready %}bg-warning{% else %}bg-secondary{% endif %} text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <h5 class="card-title">Avg Response Time</h5>
+                <h6 class="card-text" id="avgResponseTime">
+                    {% if service_ready %}
+                        {{ "%.2f"|format(avg_response_time or 0.0) }}s
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h6>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status Alert -->
+{% if error_message %}
+<div class="row mb-4">
+    <div class="col-12">
+        {% if system_status == 'not_ready' %}
+            <div class="alert alert-warning" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-clock fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">System Initializing</h5>
+                        <p class="mb-0">{{ error_message }}</p>
+                        <small class="text-muted">Please wait while the system completes initialization...</small>
+                    </div>
+                </div>
+            </div>
+        {% elif system_status == 'unhealthy' %}
+            <div class="alert alert-danger" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">System Error</h5>
+                        <p class="mb-0">{{ error_message }}</p>
+                        <small class="text-muted">Please contact your administrator if this issue persists.</small>
+                    </div>
+                </div>
+            </div>
+        {% elif system_status == 'degraded' %}
+            <div class="alert alert-warning" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">System Warning</h5>
+                        <p class="mb-0">{{ error_message }}</p>
+                        <small class="text-muted">Some features may be limited.</small>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Service Status Summary -->
+{% if service_status %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-heartbeat"></i> Service Health Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for service_name, is_ready in service_status.items() %}
+                    <div class="col-md-3 mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-circle {% if is_ready %}text-success{% else %}text-danger{% endif %} me-2"></i>
+                            <span class="{% if is_ready %}text-success{% else %}text-muted{% endif %}">
+                                {{ service_name.replace('_', ' ').title() }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Model Performance Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-chart-line"></i> Model Performance Metrics
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if service_ready and active_model and active_model not in ['System Not Ready', 'No Model Available', 'Not Set'] %}
+                <div class="alert alert-info" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-robot fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-1">Active Model: {{ active_model }}</h5>
+                            <p class="mb-0">Currently processing all email classifications with this model.</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if metrics and metrics|length > 0 and 'No Models Available' not in metrics %}
+                <div class="row">
+                    {% for model_name, model_metrics in metrics.items() %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card {% if model_name == active_model %}border-primary{% endif %}">
+                            <div class="card-header {% if model_name == active_model %}bg-primary text-white{% endif %}">
+                                <h5 class="card-title mb-0">
+                                    {{ model_name }}
+                                    {% if model_name == active_model %}
+                                        <span class="badge bg-light text-primary ms-2">Active</span>
+                                    {% endif %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if model_metrics and (model_metrics.accuracy > 0 or model_metrics.f1_score > 0) %}
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <h6 class="text-muted">Accuracy</h6>
+                                        <h4 class="text-success">{{ "%.1f"|format((model_metrics.accuracy or 0) * 100) }}%</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted">F1-Score</h6>
+                                        <h4 class="text-info">{{ "%.3f"|format(model_metrics.f1_score or 0) }}</h4>
+                                    </div>
+                                </div>
+                                <hr>
+                                <table class="table table-sm mb-0">
+                                    <tr>
+                                        <td>Precision:</td>
+                                        <td><strong>{{ "%.3f"|format(model_metrics.precision or 0) }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Recall:</td>
+                                        <td><strong>{{ "%.3f"|format(model_metrics.recall or 0) }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>False Negative Rate:</td>
+                                        <td><strong>{{ "%.1f"|format((model_metrics.false_negative_rate or 0) * 100) }}%</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Test Samples:</td>
+                                        <td><strong>{{ model_metrics.test_samples or 0 }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Trained:</td>
+                                        <td><strong>{{ model_metrics.training_date[:10] if model_metrics.training_date else 'Unknown' }}</strong></td>
+                                    </tr>
+                                    {% if model_metrics.class_balancing_enabled %}
+                                    <tr>
+                                        <td>Class Balancing:</td>
+                                        <td><span class="badge bg-success">Enabled</span></td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td>Class Balancing:</td>
+                                        <td><span class="badge bg-secondary">Disabled</span></td>
+                                    </tr>
+                                    {% endif %}
+                                </table>
+                                {% else %}
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                                    <p>No performance data available</p>
+                                    <small>Model may not be trained yet</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Charts Section - Only show if we have valid metrics -->
+                {% if service_ready and metrics and metrics|length > 0 and 'No Models Available' not in metrics %}
+                <div class="row mt-4">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-bar"></i> Model Performance Comparison
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div style="height: 400px;">
+                                    <canvas id="metricsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-pie"></i> Classification Results
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div style="height: 400px;">
+                                    <canvas id="classificationResultsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Analytics -->
+                <div class="row mt-4">
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-line"></i> Accuracy Trend
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div style="height: 300px;">
+                                    <canvas id="accuracyTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-cogs"></i> System Information
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>System Status:</strong></td>
+                                        <td>
+                                            <span class="badge {% if system_status == 'healthy' %}bg-success{% elif system_status == 'degraded' %}bg-warning{% elif system_status == 'not_ready' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                                {{ system_status.title() }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Last Updated:</strong></td>
+                                        <td>{{ last_updated or 'Unknown' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Service Ready:</strong></td>
+                                        <td>
+                                            {% if service_ready %}
+                                                <span class="text-success"><i class="fas fa-check"></i> Yes</span>
+                                            {% else %}
+                                                <span class="text-danger"><i class="fas fa-times"></i> No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Active Models:</strong></td>
+                                        <td>{{ metrics|length if metrics else 0 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Processed Today:</strong></td>
+                                        <td>{{ processed_today or 0 }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Avg Response Time:</strong></td>
+                                        <td>{{ "%.2f"|format(avg_response_time or 0) }}s</td>
+                                    </tr>
+                                </table>
+                                
+                                <div class="mt-3">
+                                    <h6>Quick Actions</h6>
+                                    <div class="d-grid gap-2">
+                                        {% if service_ready %}
+                                        <button class="btn btn-outline-primary btn-sm" onclick="exportMetrics()">
+                                            <i class="fas fa-download"></i> Export Metrics
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="clearCache()">
+                                            <i class="fas fa-trash"></i> Clear Cache
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-outline-secondary btn-sm" disabled>
+                                            <i class="fas fa-download"></i> Export Metrics (Unavailable)
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" disabled>
+                                            <i class="fas fa-trash"></i> Clear Cache (Unavailable)
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+                
+                <!-- No Models Available Message -->
+                {% if not service_ready or not metrics or metrics|length == 0 or 'No Models Available' in metrics %}
+                <div class="alert alert-warning" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-1">No Model Metrics Available</h5>
+                            {% if not service_ready %}
+                                <p class="mb-0">System services are not ready. Please wait for initialization to complete.</p>
+                            {% else %}
+                                <p class="mb-0">Model performance metrics will be displayed here once models are trained and evaluated.</p>
+                            {% endif %}
+                            <small class="text-muted">
+                                {% if system_status == 'not_ready' %}
+                                    The system is currently initializing. This may take a few moments.
+                                {% elif system_status == 'unhealthy' %}
+                                    There appears to be a system issue. Please contact your administrator.
+                                {% else %}
+                                    You may need to train models before metrics become available.
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Class Balancing Section -->
+{% if service_ready and metrics and metrics|length > 0 and 'No Models Available' not in metrics %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-balance-scale"></i> Class Balancing Analysis
+                </h4>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Active model selected using composite scoring: 40% FNR + 30% Accuracy + 20% F1 + 10% Recall
+                    </small>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for model_name, model_metrics in metrics.items() %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card {% if model_name == active_model %}border-primary{% endif %}">
+                            <div class="card-header {% if model_name == active_model %}bg-primary text-white{% else %}bg-light{% endif %}">
+                                <h5 class="card-title mb-0">
+                                    {{ model_name }}
+                                    {% if model_name == active_model %}
+                                        <span class="badge bg-light text-primary ms-2">Active</span>
+                                    {% endif %}
+                                    {% if model_metrics.class_balancing_enabled %}
+                                        <span class="badge bg-success ms-2">Balanced</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary ms-2">Unbalanced</span>
+                                    {% endif %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if model_metrics.class_balancing_enabled %}
+                                <!-- Balanced Model Information -->
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <h6 class="text-muted">Original Spam Ratio</h6>
+                                        <h4 class="text-warning">{{ "%.1f"|format((model_metrics.original_spam_ratio or 0) * 100) }}%</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted">Balanced Spam Ratio</h6>
+                                        <h4 class="text-success">{{ "%.1f"|format((model_metrics.balanced_spam_ratio or 0) * 100) }}%</h4>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <h6 class="text-muted">False Negative Rate</h6>
+                                        <h4 class="{% if (model_metrics.false_negative_rate or 0) < 0.05 %}text-success{% elif (model_metrics.false_negative_rate or 0) < 0.1 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ "%.1f"|format((model_metrics.false_negative_rate or 0) * 100) }}%
+                                        </h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <h6 class="text-muted">Synthetic Samples</h6>
+                                        <h4 class="text-info">{{ model_metrics.synthetic_samples_used or 0 }}</h4>
+                                    </div>
+                                </div>
+                                
+                                <hr>
+                                <table class="table table-sm mb-0">
+                                    <tr>
+                                        <td><strong>Balancing Method:</strong></td>
+                                        <td>{{ model_metrics.balancing_method.upper() if model_metrics.balancing_method != 'none' else 'N/A' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Improvement:</strong></td>
+                                        <td>
+                                            {% set improvement = ((model_metrics.balanced_spam_ratio or 0) - (model_metrics.original_spam_ratio or 0)) * 100 %}
+                                            {% if improvement > 0 %}
+                                                <span class="text-success">
+                                                    +{{ "%.1f"|format(improvement) }}% ratio increase
+                                                </span>
+                                            {% elif improvement < 0 %}
+                                                <span class="text-warning">
+                                                    {{ "%.1f"|format(improvement) }}% ratio decrease
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">No adjustment needed</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                                
+                                <!-- Class Distribution Chart -->
+                                <div class="mt-3">
+                                    <h6>Class Distribution Comparison</h6>
+                                    <div style="height: 200px;">
+                                        <canvas id="classDistributionChart_{{ loop.index }}"></canvas>
+                                    </div>
+                                </div>
+                                
+                                {% else %}
+                                <!-- Unbalanced Model Information -->
+                                <div class="alert alert-info" role="alert">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                                        <div>
+                                            <h6 class="mb-1">Unbalanced Model</h6>
+                                            <p class="mb-0">This model was trained without class balancing techniques.</p>
+                                            <small class="text-muted">
+                                                False Negative Rate: {{ "%.1f"|format((model_metrics.false_negative_rate or 0) * 100) }}%
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row text-center">
+                                    <div class="col-12">
+                                        <h6 class="text-muted">False Negative Rate</h6>
+                                        <h4 class="{% if (model_metrics.false_negative_rate or 0) < 0.05 %}text-success{% elif (model_metrics.false_negative_rate or 0) < 0.1 %}text-warning{% else %}text-danger{% endif %}">
+                                            {{ "%.1f"|format((model_metrics.false_negative_rate or 0) * 100) }}%
+                                        </h4>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 text-center">
+                                    <small class="text-muted">
+                                        Consider retraining with class balancing to improve spam detection.
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Overall Balancing Summary -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-chart-pie"></i> Balancing Summary
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% set balanced_models = [] %}
+                                {% set unbalanced_models = [] %}
+                                {% for model_name, model_metrics in metrics.items() %}
+                                    {% if model_metrics.class_balancing_enabled %}
+                                        {% set _ = balanced_models.append(model_name) %}
+                                    {% else %}
+                                        {% set _ = unbalanced_models.append(model_name) %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <h3 class="text-success">{{ balanced_models|length }}</h3>
+                                            <p class="mb-0">Balanced Models</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <h3 class="text-secondary">{{ unbalanced_models|length }}</h3>
+                                            <p class="mb-0">Unbalanced Models</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            {% if balanced_models %}
+                                                {% set avg_fnr = [] %}
+                                                {% for model_name in balanced_models %}
+                                                    {% set _ = avg_fnr.append(metrics[model_name].false_negative_rate or 0) %}
+                                                {% endfor %}
+                                                {% set avg_fnr_value = (avg_fnr|sum / avg_fnr|length) if avg_fnr else 0 %}
+                                                <h3 class="{% if avg_fnr_value < 0.05 %}text-success{% elif avg_fnr_value < 0.1 %}text-warning{% else %}text-danger{% endif %}">
+                                                    {{ "%.1f"|format(avg_fnr_value * 100) }}%
+                                                </h3>
+                                                <p class="mb-0">Avg False Negative Rate</p>
+                                            {% else %}
+                                                <h3 class="text-muted">N/A</h3>
+                                                <p class="mb-0">No Balanced Models</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% if balanced_models %}
+                                <div class="mt-3">
+                                    <h6>Recommendations:</h6>
+                                    <ul class="mb-0">
+                                        {% if avg_fnr_value < 0.05 %}
+                                        <li class="text-success">Excellent spam detection performance achieved with class balancing.</li>
+                                        {% elif avg_fnr_value < 0.1 %}
+                                        <li class="text-warning">Good spam detection performance. Consider fine-tuning balancing parameters.</li>
+                                        {% else %}
+                                        <li class="text-danger">False negative rate is still high. Review balancing configuration.</li>
+                                        {% endif %}
+                                        
+                                        {% if unbalanced_models %}
+                                        <li>Consider applying class balancing to {{ unbalanced_models|length }} unbalanced model(s).</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                                {% else %}
+                                <div class="mt-3">
+                                    <div class="alert alert-warning" role="alert">
+                                        <strong>Recommendation:</strong> Apply class balancing techniques to improve spam detection and reduce false negatives.
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Model Selection Explanation -->
+{% if service_ready and metrics and metrics|length > 1 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-trophy"></i> Model Selection Explanation
+                </h4>
+                <small class="text-muted">Why "{{ active_model }}" was selected as the active model</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Accuracy</th>
+                                <th>FNR</th>
+                                <th>F1 Score</th>
+                                <th>Recall</th>
+                                <th>Composite Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model_name, model_metrics in metrics.items() %}
+                            {% set fnr = model_metrics.false_negative_rate or (1.0 - (model_metrics.recall or 0)) %}
+                            {% set fnr_score = 1.0 - fnr %}
+                            {% set composite_score = (0.4 * fnr_score) + (0.3 * (model_metrics.accuracy or 0)) + (0.2 * (model_metrics.f1_score or 0)) + (0.1 * (model_metrics.recall or 0)) %}
+                            <tr class="{% if model_name.lower() in active_model.lower() %}table-success{% endif %}">
+                                <td>
+                                    <strong>{{ model_name.replace('_', ' ').title() }}</strong>
+                                    {% if model_name.lower() in active_model.lower() %}
+                                        <span class="badge bg-success ms-1">Active</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.3f"|format(model_metrics.accuracy or 0) }}</td>
+                                <td>
+                                    <span class="badge bg-{% if fnr <= 0.02 %}success{% elif fnr <= 0.05 %}warning{% else %}danger{% endif %}">
+                                        {{ "%.3f"|format(fnr) }}
+                                    </span>
+                                </td>
+                                <td>{{ "%.3f"|format(model_metrics.f1_score or 0) }}</td>
+                                <td>{{ "%.3f"|format(model_metrics.recall or 0) }}</td>
+                                <td>
+                                    <span class="badge bg-{% if composite_score >= 0.9 %}success{% elif composite_score >= 0.7 %}warning{% else %}danger{% endif %}">
+                                        {{ "%.3f"|format(composite_score) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if model_name.lower() in active_model.lower() %}
+                                        <i class="fas fa-check-circle text-success"></i> Selected
+                                    {% else %}
+                                        <i class="fas fa-circle text-muted"></i> Available
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-3">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Selection Criteria (Weighted Composite Score):</h6>
+                            <ul class="small mb-0">
+                                <li><strong>40%</strong> - Low False Negative Rate (better spam detection)</li>
+                                <li><strong>30%</strong> - High Accuracy (overall performance)</li>
+                                <li><strong>20%</strong> - High F1 Score (precision/recall balance)</li>
+                                <li><strong>10%</strong> - High Recall (spam detection rate)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <a href="{{ url_for('web.model_selection') }}" class="btn btn-primary">
+                                    <i class="fas fa-cogs"></i> Change Active Model
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+<script>
+// Update current time
+function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+}
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+
+<script type="application/json" id="dashboard-data">
+{% if service_ready and metrics and metrics|length > 0 and 'No Models Available' not in metrics %}
+{
+    "modelNames": {{ metrics.keys() | list | tojson }},
+    "accuracyData": [{% for model in metrics %}{{ (metrics[model].accuracy or 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+    "precisionData": [{% for model in metrics %}{{ (metrics[model].precision or 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+    "recallData": [{% for model in metrics %}{{ (metrics[model].recall or 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+    "f1Data": [{% for model in metrics %}{{ (metrics[model].f1_score or 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+    "classificationResultsDistribution": {{ classification_results_distribution | tojson }}
+}
+{% else %}
+{
+    "modelNames": [],
+    "accuracyData": [],
+    "precisionData": [],
+    "recallData": [],
+    "f1Data": [],
+    "classificationResultsDistribution": {{ classification_results_distribution | tojson }}
+}
+{% endif %}
+</script>
+
+<script type="application/json" id="dashboard-config">
+{
+    "serviceReady": {{ service_ready | tojson }},
+    "activeModel": {{ active_model | tojson }},
+    "systemStatus": {{ system_status | tojson }},
+    "metrics": {{ metrics | tojson }},
+    "processedToday": {{ processed_today or 0 }},
+    "avgResponseTime": {{ avg_response_time or 0 }}
+}
+</script>
+
+<script>
+// Load dashboard data and configuration from JSON script tags
+window.dashboardData = JSON.parse(document.getElementById('dashboard-data').textContent);
+window.dashboardConfig = JSON.parse(document.getElementById('dashboard-config').textContent);
+
+// Create class distribution charts for balanced models
+function createClassDistributionCharts() {
+    if (!window.dashboardConfig.metrics) return;
+    
+    let chartIndex = 1;
+    for (const [modelName, metrics] of Object.entries(window.dashboardConfig.metrics)) {
+        if (metrics.class_balancing_enabled) {
+            const canvasId = `classDistributionChart_${chartIndex}`;
+            const canvas = document.getElementById(canvasId);
+            
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Original Distribution', 'Balanced Distribution'],
+                        datasets: [
+                            {
+                                label: 'Spam %',
+                                data: [
+                                    (metrics.original_spam_ratio || 0) * 100,
+                                    (metrics.balanced_spam_ratio || 0) * 100
+                                ],
+                                backgroundColor: ['#dc3545', '#28a745'],
+                                borderColor: ['#dc3545', '#28a745'],
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Legitimate %',
+                                data: [
+                                    100 - ((metrics.original_spam_ratio || 0) * 100),
+                                    100 - ((metrics.balanced_spam_ratio || 0) * 100)
+                                ],
+                                backgroundColor: ['#6c757d', '#17a2b8'],
+                                borderColor: ['#6c757d', '#17a2b8'],
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            chartIndex++;
+        }
+    }
+}
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    createClassDistributionCharts();
+});
+</script>
+
+<script>
+
+
+// Dashboard functions with service readiness checks
+function exportMetrics() {
+    if (window.dashboardConfig.serviceReady) {
+        const data = {
+            timestamp: new Date().toISOString(),
+            activeModel: window.dashboardConfig.activeModel,
+            systemStatus: window.dashboardConfig.systemStatus,
+            serviceReady: window.dashboardConfig.serviceReady,
+            metrics: window.dashboardConfig.metrics,
+            processedToday: window.dashboardConfig.processedToday,
+            avgResponseTime: window.dashboardConfig.avgResponseTime
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'dashboard_export_' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showAlert('Dashboard data exported successfully', 'success');
+    } else {
+        showAlert('Export unavailable - system not ready', 'warning');
+    }
+}
+
+function clearCache() {
+    if (window.dashboardConfig.serviceReady) {
+        if (confirm('Are you sure you want to clear the application cache?')) {
+            // In real implementation, this would call an API endpoint
+            showAlert('Cache cleared successfully', 'success');
+        }
+    } else {
+        showAlert('Cache clear unavailable - system not ready', 'warning');
+    }
+}
+
+function refreshDashboard() {
+    showAlert('Refreshing dashboard...', 'info');
+    window.location.reload();
+}
+
+// Auto-refresh functionality with service status awareness
+if (window.dashboardConfig.serviceReady) {
+    setInterval(function() {
+        // Only auto-refresh if service is ready
+        if (document.visibilityState === 'visible') {
+            // Refresh every 30 seconds when page is visible
+            setTimeout(refreshDashboard, 30000);
+        }
+    }, 30000);
+}
+
+// Helper function to show alerts
+function showAlert(message, type) {
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at top of content
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

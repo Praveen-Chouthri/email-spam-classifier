@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Service Unavailable - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Service Unavailable
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <h5>Service Not Ready</h5>
+                    <p class="text-muted">
+                        {% if error and error.message %}
+                            {{ error.message }}
+                        {% else %}
+                            The classification service is currently not available. This usually means the system needs to be trained first.
+                        {% endif %}
+                    </p>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> What can you do?</h6>
+                        <ul class="mb-0">
+                            <li>Check if the system has been trained with spam detection models</li>
+                            <li>Contact the administrator to initialize the system</li>
+                            <li>Try again in a few minutes</li>
+                        </ul>
+                    </div>
+                    
+                    {% if error and error.code %}
+                    <p><small class="text-muted">Error Code: {{ error.code }}</small></p>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('web.index') }}" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Go Home
+                        </a>
+                        <a href="{{ url_for('web.performance_dashboard') }}" class="btn btn-info">
+                            <i class="fas fa-chart-bar"></i> Check System Status
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

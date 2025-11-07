@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Classify Email - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="fas fa-envelope"></i> Email Classification
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Enter the email content below to classify it as spam or legitimate. 
+                    Our machine learning model will analyze the text and provide a confidence score.
+                </p>
+                
+                <form method="POST" action="{{ url_for('web.classify_email') }}" id="classifyForm">
+                    <div class="mb-3">
+                        <label for="email_text" class="form-label">Email Content</label>
+                        <textarea 
+                            class="form-control" 
+                            id="email_text" 
+                            name="email_text" 
+                            rows="10" 
+                            placeholder="Paste the email content here..."
+                            required
+                        ></textarea>
+                        <div class="form-text">
+                            Enter the complete email text including subject and body.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                            Clear
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="classifyBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner"></span>
+                            <i class="fas fa-search"></i> Classify Email
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">
+                                <i class="fas fa-robot text-primary"></i> AI-Powered Detection
+                            </h5>
+                            <p class="card-text small">
+                                Uses advanced machine learning algorithms for accurate spam detection.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">
+                                <i class="fas fa-clock text-success"></i> Fast Processing
+                            </h5>
+                            <p class="card-text small">
+                                Get results in under 3 seconds with confidence scores.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function clearForm() {
+    document.getElementById('email_text').value = '';
+}
+
+document.getElementById('classifyForm').addEventListener('submit', function() {
+    const btn = document.getElementById('classifyBtn');
+    const spinner = document.getElementById('loadingSpinner');
+    
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+});
+</script>
+{% endblock %}

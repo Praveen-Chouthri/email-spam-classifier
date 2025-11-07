@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Batch Results - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="fas fa-check-circle text-success"></i> Batch Processing Complete
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success" role="alert">
+                    <h5><i class="fas fa-check"></i> Processing Successful!</h5>
+                    <p class="mb-0">Your batch email classification has been completed successfully.</p>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h5>Job Details</h5>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Job ID:</strong></td>
+                                <td><code>{{ job_id }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status:</strong></td>
+                                <td><span class="badge bg-success">Completed</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processed:</strong></td>
+                                <td>{{ processed_time }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Download Results</h5>
+                        <p class="text-muted">
+                            Your classification results are ready for download as a CSV file.
+                        </p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('web.download_results', job_id=job_id) }}" 
+                               class="btn btn-success">
+                                <i class="fas fa-download"></i> Download Results CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mt-4 d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{{ url_for('web.batch_upload') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload"></i> Process Another Batch
+                    </a>
+                    <a href="{{ url_for('web.index') }}" class="btn btn-primary">
+                        <i class="fas fa-envelope"></i> Single Email Classification
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6><i class="fas fa-info-circle"></i> About the Results</h6>
+                    <p class="mb-0 small">
+                        The downloaded CSV file contains the original email content along with 
+                        classification results, confidence scores, and processing metadata.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "test_vercel.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "test_vercel.py"
+    }
+  ],
+  "functions": {
+    "test_vercel.py": {
+      "maxDuration": 30
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Bad Request - Email Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Bad Request
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <h5>Invalid Request</h5>
+                    <p class="text-muted">
+                        {% if error and error.message %}
+                            {{ error.message }}
+                        {% else %}
+                            The request you made is invalid or contains errors.
+                        {% endif %}
+                    </p>
+                    
+                    {% if error and error.code %}
+                    <p><small class="text-muted">Error Code: {{ error.code }}</small></p>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('web.index') }}" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Go Home
+                        </a>
+                        <button onclick="history.back()" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Go Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
